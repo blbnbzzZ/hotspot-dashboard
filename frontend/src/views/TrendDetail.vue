@@ -59,6 +59,10 @@
               </span>
             </div>
             <div style="font-size:0.85rem;line-height:1.4;">{{ info.title }}</div>
+            <!-- 简短摘要（所有平台都有） -->
+            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:6px;line-height:1.5;">
+              {{ getPlatformSummary(plat, info) }}
+            </div>
           </div>
           <div style="font-size:0.75rem;color:var(--text-secondary);text-align:right;flex-shrink:0;">
             <div>排名 <strong>#{{ info.rank }}</strong></div>
@@ -193,6 +197,37 @@ function isRealUrl(url) {
     'search.bilibili.com',
   ]
   return !searchPatterns.some(p => url.includes(p))
+}
+
+// 为每个平台生成简短摘要
+function getPlatformSummary(plat, info) {
+  const totalPlatforms = detail.value ? Object.keys(detail.value.platforms).length : 0
+  const isCommon = detail.value?.is_common
+
+  // 计算其他出现该热点的平台
+  if (!detail.value) return ''
+  const allPlatforms = Object.keys(detail.value.platforms)
+  const otherPlatforms = allPlatforms.filter(p => p !== plat).map(p => platformNames[p] || p)
+
+  // 通用前缀
+  const commonPrefix = totalPlatforms > 1
+    ? `在${allPlatforms.map(p => platformNames[p] || p).join('、')}共${totalPlatforms}个平台${isCommon ? '出现，为跨平台共同热点' : '出现'}`
+    : `仅在${platformNames[plat] || plat}出现`
+
+  // 平台特色后缀
+  const suffixMap = {
+    'weibo': `，微博热搜排名 #${info.rank}`,
+    'thepaper': `，澎湃新闻热门`,
+    'baidu': `，百度搜索热点`,
+    'bilibili': `，B站热门视频`,
+  }
+  const suffix = suffixMap[plat] || ''
+
+  // 如果是单平台，只显示平台特色
+  if (totalPlatforms === 1) {
+    return suffix.replace(/^，/, '')
+  }
+  return commonPrefix + suffix
 }
 
 function goGenerate() {

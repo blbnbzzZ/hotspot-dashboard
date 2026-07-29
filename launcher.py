@@ -1,159 +1,288 @@
-"""
-热点聚合工作台 - 启动器 (Python版)
-绕过 Windows .bat 兼容性问题
-"""
+"""热点聚合工作台 - 启动器（单窗口 GUI 版）"""
 import os
 import sys
-import subprocess
 import time
 import webbrowser
+import socket
+import subprocess
+import threading
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk, scrolledtext
+from datetime import datetime
 
 ROOT = Path(__file__).parent.resolve()
 NODE_BIN = Path(r"C:\Users\blbnb\.workbuddy\binaries\node\versions\22.22.2")
 
-def setup_path():
-    """把 Node.js 加到当前进程 PATH"""
-    if NODE_BIN.exists():
-        os.environ["PATH"] = str(NODE_BIN) + os.pathsep + os.environ["PATH"]
-        print(f"[OK] Added Node.js to PATH: {NODE_BIN}")
+# 进程句柄
+backend_proc = None
+frontend_proc = None
 
-def check_deps():
-    """检查依赖"""
-    print("\n[1/3] Checking dependencies...")
-
-    # Python
-    print(f"  Python: {sys.version.split()[0]}")
-
-    # Node
-    try:
-        result = subprocess.run(["node", "--version"], capture_output=True, text=True, shell=True)
-        print(f"  Node:   {result.stdout.strip()}")
-    except Exception as e:
-        print(f"  [FAIL] Node not found: {e}")
-        return False
-
-    # npm
-    try:
-        result = subprocess.run(["npm", "--version"], capture_output=True, text=True, shell=True)
-        print(f"  npm:    {result.stdout.strip()}")
-    except Exception as e:
-        print(f"  [FAIL] npm not found: {e}")
-        return False
-
-    # Backend deps
-    print("  [INFO] Checking backend dependencies...")
-    subprocess.run("pip install -r requirements.txt --quiet", cwd=ROOT / "backend", shell=True)
-
-    # Frontend deps
-    nm = ROOT / "frontend" / "node_modules"
-    if not nm.exists():
-        print("  [INFO] Installing frontend dependencies...")
-        subprocess.run("npm install", cwd=ROOT / "frontend", shell=True)
-    else:
-        print("  [OK]  Frontend dependencies ready")
-
-    return True
-
-def get_lan_ip():
-    """获取本机局域网 IP（手机访问用）"""
-    import socket
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # 不需要真正连接，只用来获取本机 IP
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return None
+# 后端日志文件路径
+LOG_DIR = ROOT / "backend" / "data"
+LOG_FILE = LOG_DIR / "backend.log"
 
 
-def start_service(name, cwd, cmd, port):
-    """在新窗口中启动一个服务"""
-    print(f"\n[Start] {name} on port {port}...")
-    # 构建命令 - 在新窗口运行，保持窗口打开以便看错误
-    full_cmd = f'start "{name}-{port}" cmd /k "cd /d {cwd} && {cmd}"'
-    subprocess.Popen(full_cmd, shell=True)
-    return True
+class LauncherApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🔥 热点聚合工作台")
+        self.root.geometry("700x550")
+        self.root.minsize(600, 400)
+        self.running = False
+
+        # 创建 UI
+        self.create_widgets()
+
+        # 启动后台任务
+        self.root.after(100, self.start_services)
+
+        # 关闭时清理
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def create_widgets(self):
+        # 顶部状态栏
+        top = tk.Frame(self.root, bg="#1a1a2e", height=60)
+        top.pack(fill=tk.X)
+        top.pack_propagate(False)
+        title = tk.Label(top, text="🔥 热点聚合工作台",
+                        font=("Microsoft YaHei", 14, "bold"),
+                        fg="white", bg="#1a1a2e")
+        title.pack(side=tk.LEFT, padx=20, pady=15)
+
+        # 状态文字
+        self.status_label = tk.Label(top, text="🔄 启动中...",
+                                     font=("Microsoft YaHei", 11),
+                                     fg="#fbbf24", bg="#1a1a2e")
+        self.status_label.pack(side=tk.RIGHT, padx=20)
+
+        # 信息栏
+        info_frame = tk.Frame(self.root)
+        info_frame.pack(fill=tk.X, padx=15, pady=10)
+
+        self.info_label = tk.Label(
+            info_frame,
+            text="",
+            font=("Microsoft YaHei", 9),
+            fg="#666",
+            justify=tk.LEFT,
+        )
+        self.info_label.pack(anchor=tk.W)
+
+        # 日志标题
+        log_title = tk.Frame(self.root)
+        log_title.pack(fill=tk.X, padx=15, pady=(5, 0))
+        tk.Label(log_title, text="📋 后端日志",
+                font=("Microsoft YaHei", 10, "bold")).pack(side=tk.LEFT)
+
+        # 日志文本框
+        self.log_text = scrolledtext.ScrolledText(
+            self.root,
+            height=18,
+            font=("Consolas", 9),
+            bg="#1e1e1e",
+            fg="#d4d4d4",
+            insertbackground="white",
+            state=tk.DISABLED,
+        )
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=15, pady=(5, 10))
+
+        # 底部按钮栏
+        btn_frame = tk.Frame(self.root)
+        btn_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+
+        self.open_btn = tk.Button(
+            btn_frame, text="🌐 在浏览器打开",
+            command=self.open_browser,
+            font=("Microsoft YaHei", 10),
+            bg="#7c3aed", fg="white",
+            relief=tk.FLAT, padx=20, pady=8, state=tk.DISABLED,
+        )
+        self.open_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        tk.Button(
+            btn_frame, text="📱 显示手机 IP",
+            command=self.show_phone_ip,
+            font=("Microsoft YaHei", 10),
+            relief=tk.FLAT, padx=20, pady=8,
+        ).pack(side=tk.LEFT, padx=8)
+
+        tk.Button(
+            btn_frame, text="🚪 退出",
+            command=self.on_close,
+            font=("Microsoft YaHei", 10),
+            bg="#ef4444", fg="white",
+            relief=tk.FLAT, padx=20, pady=8,
+        ).pack(side=tk.RIGHT)
+
+    def append_log(self, text):
+        """追加日志到文本框"""
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.insert(tk.END, text + "\n")
+        self.log_text.see(tk.END)
+        self.log_text.config(state=tk.DISABLED)
+
+    def set_status(self, text, color="#fbbf24"):
+        self.status_label.config(text=text, fg=color)
+
+    def get_lan_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return None
+
+    def start_services(self):
+        """启动后端和前端（后台线程）"""
+        self.running = True
+        self.set_status("🔄 检查依赖...", "#fbbf24")
+        threading.Thread(target=self._start_services_thread, daemon=True).start()
+
+    def _start_services_thread(self):
+        # 1. 配置 PATH
+        if NODE_BIN.exists():
+            os.environ["PATH"] = str(NODE_BIN) + os.pathsep + os.environ["PATH"]
+
+        # 2. 检查 Python/Node
+        node_v = subprocess.run(["node", "--version"], capture_output=True, text=True, shell=True).stdout.strip()
+        self.append_log(f"[OK] Node.js: {node_v}")
+
+        # 3. 安装后端依赖（静默）
+        self.append_log("[INFO] 检查后端依赖...")
+        subprocess.run(
+            "pip install -r requirements.txt --quiet",
+            cwd=ROOT / "backend", shell=True,
+            capture_output=True,
+        )
+
+        # 4. 安装前端依赖
+        if not (ROOT / "frontend" / "node_modules").exists():
+            self.append_log("[INFO] 安装前端依赖...")
+            subprocess.run("npm install", cwd=ROOT / "frontend", shell=True,
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            self.append_log("[OK] 前端依赖已就绪")
+
+        # 5. 启动后端
+        self.set_status("🔄 启动后端...", "#fbbf24")
+        self.append_log("[INFO] 启动后端（端口 8000）...")
+        global backend_proc
+        backend_proc = subprocess.Popen(
+            [sys.executable, "run.py"],
+            cwd=ROOT / "backend",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+        # 6. 等待后端就绪
+        self.append_log("[INFO] 等待后端健康...")
+        import urllib.request, urllib.error
+        ready = False
+        for i in range(30):
+            time.sleep(1)
+            try:
+                req = urllib.request.urlopen("http://127.0.0.1:8000/api/health", timeout=2)
+                if req.status == 200:
+                    ready = True
+                    break
+            except Exception:
+                pass
+            self.append_log(f"  ... {i+1}s")
+        if ready:
+            self.append_log("[OK] 后端就绪")
+        else:
+            self.append_log("[WARN] 后端启动超时，继续启动前端...")
+
+        # 7. 启动前端
+        self.set_status("🔄 启动前端...", "#fbbf24")
+        self.append_log("[INFO] 启动前端（端口 5173）...")
+        global frontend_proc
+        frontend_proc = subprocess.Popen(
+            ["cmd", "/c", "npm", "run", "dev", "--", "--host", "0.0.0.0"],
+            cwd=ROOT / "frontend",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+        # 8. 等待前端就绪
+        for i in range(30):
+            time.sleep(1)
+            try:
+                req = urllib.request.urlopen("http://127.0.0.1:5173", timeout=2)
+                if req.status == 200:
+                    break
+            except Exception:
+                pass
+
+        # 9. 全部就绪
+        self.set_status("✅ 服务已就绪", "#10b981")
+        self.open_btn.config(state=tk.NORMAL)
+
+        # 显示手机 IP
+        lan_ip = self.get_lan_ip()
+        if lan_ip:
+            phone_url = f"http://{lan_ip}:5173"
+            self.info_label.config(
+                text=f"💻 PC: http://localhost:5173\n📱 手机: {phone_url}\n\n日志会写入文件：{LOG_FILE}"
+            )
+
+        # 10. 自动打开浏览器
+        self.append_log("[INFO] 打开浏览器...")
+        webbrowser.open("http://localhost:5173")
+
+        # 11. 启动日志监控线程
+        threading.Thread(target=self._tail_log_file, daemon=True).start()
+
+    def _tail_log_file(self):
+        """实时跟踪日志文件"""
+        if not LOG_FILE.exists():
+            return
+        with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
+            f.seek(0, 2)  # 跳到末尾
+            while self.running:
+                line = f.readline()
+                if line:
+                    self.append_log(line.rstrip())
+                else:
+                    time.sleep(1)
+
+    def open_browser(self):
+        webbrowser.open("http://localhost:5173")
+
+    def show_phone_ip(self):
+        ip = self.get_lan_ip()
+        if ip:
+            import tkinter.messagebox as mb
+            mb.showinfo("手机访问", f"手机浏览器打开：\nhttp://{ip}:5173\n\n确保手机和电脑在同一 WiFi。")
+
+    def on_close(self):
+        import tkinter.messagebox as mb
+        if not mb.askyesno("退出", "确认退出热点聚合工作台？\n所有后台服务将被关闭。"):
+            return
+        self.running = False
+        self.append_log("[INFO] 关闭服务...")
+        try:
+            if frontend_proc:
+                frontend_proc.terminate()
+            if backend_proc:
+                # 调用后端的退出 API（会清理所有进程）
+                import urllib.request
+                urllib.request.urlopen("http://127.0.0.1:8000/api/system/exit", timeout=2)
+        except Exception:
+            pass
+        self.root.destroy()
+
 
 def main():
-    print("=" * 60)
-    print("  Hotspot Dashboard - One-Click Starter")
-    print("=" * 60)
+    root = tk.Tk()
+    app = LauncherApp(root)
+    root.mainloop()
 
-    setup_path()
-
-    if not check_deps():
-        print("\n[FAIL] Dependencies missing. See errors above.")
-        input("\nPress Enter to exit...")
-        return 1
-
-    # 启动后端
-    backend_dir = ROOT / "backend"
-    start_service("Backend", str(backend_dir), "python run.py", 8000)
-
-    # 等待后端真正就绪（健康检查）
-    print("\n[等待] 检查后端健康状态...")
-    import urllib.request, urllib.error
-    ready = False
-    for i in range(20):
-        time.sleep(1)
-        try:
-            req = urllib.request.urlopen("http://127.0.0.1:8000/api/health", timeout=2)
-            if req.status == 200:
-                print(f"  ✓ 后端就绪 ({i+1}秒)")
-                ready = True
-                break
-        except (urllib.error.URLError, ConnectionError):
-            pass
-    if not ready:
-        print("  ⚠ 后端 20 秒内未就绪，仍继续启动前端")
-
-    # 启动前端 - 添加 --host 0.0.0.0 让手机/局域网设备可以访问
-    frontend_dir = ROOT / "frontend"
-    start_service("Frontend", str(frontend_dir), "npm run dev -- --host 0.0.0.0", 5173)
-
-    print("\n" + "=" * 60)
-    print("  Both services launched in new windows!")
-    print("=" * 60)
-    print()
-    print("  Windows opened:")
-    print("    - Backend-8000  (FastAPI)")
-    print("    - Frontend-5173 (Vue)")
-    print()
-    print("  Wait ~10 seconds for frontend to compile,")
-    print("  then your browser will open automatically.")
-    print()
-    print("  URL (PC): http://localhost:5173")
-
-    # 获取局域网 IP，供手机访问用
-    lan_ip = get_lan_ip()
-    if lan_ip:
-        print()
-        print("  ─────────────── 手机访问 ───────────────")
-        print(f"  📱 手机浏览器打开: http://{lan_ip}:5173")
-        print("  (确保手机和电脑在同一个 WiFi 网络)")
-        print()
-        print("  💡 添加到桌面 (像 App 一样):")
-        print("     Safari (iOS): 分享按钮 → 添加到主屏幕")
-        print("     Chrome (安卓): 菜单 → 添加到主屏幕")
-        print("  ────────────────────────────────────────")
-    print()
-
-    # 等待并打开浏览器
-    time.sleep(8)
-    print("Opening browser...")
-    try:
-        webbrowser.open("http://localhost:5173")
-    except Exception as e:
-        print(f"  Could not open browser automatically: {e}")
-        print("  Please visit http://localhost:5173 manually")
-
-    print()
-    print("Done. You can close this window.")
-    input("Press Enter to close this launcher...")
-    return 0
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

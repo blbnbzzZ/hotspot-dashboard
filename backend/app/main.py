@@ -799,6 +799,36 @@ def health_check():
     }
 
 
+@app.get("/api/system/logs")
+def get_backend_logs(lines: int = 100):
+    """获取最近 N 行后端日志"""
+    log_file = Path(__file__).parent.parent / "data" / "backend.log"
+    if not log_file.exists():
+        return {"lines": [], "file": str(log_file), "size": 0}
+    try:
+        with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+            all_lines = f.readlines()
+        return {
+            "lines": all_lines[-lines:],
+            "file": str(log_file),
+            "size": log_file.stat().st_size,
+        }
+    except Exception as e:
+        return {"lines": [], "error": str(e)}
+
+
+@app.delete("/api/system/logs")
+def clear_backend_logs():
+    """清空日志"""
+    log_file = Path(__file__).parent.parent / "data" / "backend.log"
+    try:
+        if log_file.exists():
+            log_file.write_text("", encoding="utf-8")
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 # ========================
 # 网页内容提取 API
 # ========================
