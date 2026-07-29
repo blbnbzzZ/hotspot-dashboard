@@ -7,7 +7,6 @@
       <button class="filter-chip" :class="{ active: tab === 'history' }" @click="tab = 'history'">💬 对话历史</button>
       <button class="filter-chip" :class="{ active: tab === 'records' }" @click="tab = 'records'">📋 生成记录</button>
       <button class="filter-chip" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">🔑 API 设置</button>
-      <button class="filter-chip" :class="{ active: tab === 'storage' }" @click="tab = 'storage'">💾 文件保存</button>
     </div>
 
     <!-- =========== Tab: 对话历史 =========== -->
@@ -45,46 +44,7 @@
       </div>
     </div>
 
-    <!-- =========== Tab: 生成记录 =========== -->
-    <div v-if="tab === 'records'">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div class="section-title" style="margin-bottom:0;">📋 生成记录</div>
-        <span style="font-size:0.78rem;color:var(--text-muted);">共 {{ historyTotal }} 条</span>
-      </div>
-
-      <div v-if="loadingHistory" class="loading-spinner"><div class="spinner"></div></div>
-      <div v-else-if="!historyItems.length" class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-text">暂无生成记录</div>
-      </div>
-
-      <div v-else>
-        <div v-for="gen in historyItems" :key="gen.id" class="history-card card"
-          :class="{ 'history-expanded': expandedId === gen.id }">
-          <div class="history-header" @click="toggleExpand(gen.id)">
-            <div style="flex:1;min-width:0;">
-              <div class="history-prompt">{{ gen.prompt.slice(0, 60) }}{{ gen.prompt.length > 60 ? '...' : '' }}</div>
-              <div class="history-meta">
-                <span class="gen-status-dot" :class="'dot-' + gen.status"></span>
-                {{ formatTime(gen.created_at) }}
-                <span v-if="gen.provider"> · {{ providerName(gen.provider) }}</span>
-              </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:0.72rem;color:var(--text-muted);">{{ expandedId === gen.id ? '收起 ▲' : '展开 ▼' }}</span>
-              <button class="btn btn-danger btn-sm" @click.stop="deleteGeneration(gen.id)" title="删除">🗑️</button>
-            </div>
-          </div>
-          <div v-if="expandedId === gen.id" class="history-body">
-            <div v-if="gen.status === 'completed'" class="history-content">
-              <pre>{{ gen.content || '(内容为空)' }}</pre>
-              <button class="btn btn-secondary btn-sm" @click="copyContent(gen.content)" style="margin-top:8px;">📋 复制</button>
-            </div>
-            <div v-if="gen.status === 'failed'" class="gen-error">⚠️ {{ gen.error_msg || '生成失败' }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- =========== Tab: 生成记录（已移除） =========== -->
 
     <!-- =========== Tab: API 设置 =========== -->
     <div v-if="tab === 'settings'">
@@ -118,34 +78,7 @@
     </div>
 
     <!-- =========== Tab: 文件保存路径 =========== -->
-    <div v-if="tab === 'storage'">
-      <div class="card">
-        <div style="font-weight:600;margin-bottom:8px;">💾 文件保存路径</div>
-        <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px;">
-          对话导出和生成内容保存到此目录。留空则保存到默认路径。
-        </div>
-
-        <div style="display:flex;gap:6px;">
-          <input v-model="storagePath" class="api-key-input"
-            placeholder="选择或输入路径"
-            style="flex:1;font-family:var(--font-mono);" />
-          <button class="btn btn-secondary btn-sm" @click="pickFolder" :disabled="pickingFolder" title="弹出系统文件夹选择器">
-            📂 浏览
-          </button>
-          <button class="btn btn-primary btn-sm" @click="saveStoragePath" :disabled="savingPath">
-            {{ savingPath ? '...' : '保存' }}
-          </button>
-        </div>
-
-        <div v-if="storagePath" style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">
-          📁 当前路径：{{ storagePath }}
-        </div>
-        <div v-else style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">
-          📁 默认路径：<code style="font-family:var(--font-mono);">{{ defaultStoragePath }}</code>
-          <div style="margin-top:4px;">（仅在首次保存生成内容时才会创建）</div>
-        </div>
-      </div>
-    </div>
+    <!-- 已移除 - 改用浏览器默认下载目录 -->
   </div>
 </template>
 
@@ -228,89 +161,6 @@ async function deleteConv(id) {
   showToast('已删除')
 }
 
-// ============ 生成记录 ============
-const historyItems = ref([])
-const historyTotal = ref(0)
-const loadingHistory = ref(false)
-const expandedId = ref(null)
-
-async function fetchHistory() {
-  loadingHistory.value = true
-  try {
-    const res = await fetch('/api/generations')
-    const data = await res.json()
-    historyItems.value = data.items
-    historyTotal.value = data.total
-  } catch (e) {}
-  finally { loadingHistory.value = false }
-}
-
-function toggleExpand(id) {
-  expandedId.value = expandedId.value === id ? null : id
-}
-
-async function deleteGeneration(id) {
-  if (!confirm('确认删除该生成记录？')) return
-  try {
-    await fetch(`/api/generations/${id}`, { method: 'DELETE' })
-    showToast('已删除')
-    await fetchHistory()
-  } catch (e) { showToast('删除失败') }
-}
-
-function copyContent(text) {
-  if (!text) return
-  navigator.clipboard.writeText(text).then(() => showToast('已复制')).catch(() => showToast('复制失败'))
-}
-
-// ============ 文件保存路径 ============
-const storagePath = ref('')
-const savingPath = ref(false)
-const pickingFolder = ref(false)
-const defaultStoragePath = ref('~/Documents/hothistory')
-
-async function fetchStoragePath() {
-  try {
-    const res = await fetch('/api/settings/storage')
-    const data = await res.json()
-    storagePath.value = data.path || ''
-    if (data.default_path) defaultStoragePath.value = data.default_path
-  } catch (e) {}
-}
-
-async function saveStoragePath() {
-  savingPath.value = true
-  try {
-    const res = await fetch('/api/settings/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: storagePath.value.trim() })
-    })
-    const data = await res.json()
-    if (data.status === 'success') showToast('已保存')
-  } catch (e) { showToast('保存失败') }
-  finally { savingPath.value = false }
-}
-
-async function pickFolder() {
-  pickingFolder.value = true
-  showToast('已弹出系统选择器，请选择目录')
-  try {
-    const res = await fetch('/api/settings/storage/pick', { method: 'POST' })
-    const data = await res.json()
-    if (data.status === 'success' && data.path) {
-      storagePath.value = data.path
-      showToast(`已选择: ${data.path}`)
-    } else if (data.message) {
-      showToast('选择失败：' + data.message)
-    }
-  } catch (e) {
-    showToast('弹出选择器失败')
-  } finally {
-    pickingFolder.value = false
-  }
-}
-
 // ============ 工具 ============
 function formatTime(t) {
   if (!t) return '-'
@@ -329,8 +179,6 @@ function providerName(key) {
 onMounted(() => {
   fetchAIStatus()
   fetchConversations()
-  fetchHistory()
-  fetchStoragePath()
 })
 </script>
 

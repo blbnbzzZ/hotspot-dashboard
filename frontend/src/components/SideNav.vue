@@ -51,10 +51,6 @@
       <div class="drawer-divider"></div>
 
       <div class="drawer-nav">
-        <button class="drawer-link" @click="toggleTheme">
-          <span class="link-icon">{{ isDark ? '☀️' : '🌙' }}</span>
-          <span class="link-text">{{ isDark ? '切换亮色' : '切换暗色' }}</span>
-        </button>
         <button class="drawer-link drawer-exit" @click="exitApp">
           <span class="link-icon">🚪</span>
           <span class="link-text">退出程序</span>

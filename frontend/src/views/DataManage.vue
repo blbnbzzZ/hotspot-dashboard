@@ -1,7 +1,25 @@
 <template>
   <div class="data-manage">
-    <div class="section-title">⚙️ 数据管理</div>
+    <div class="section-title">⚙️ 设置</div>
     <div class="section-subtitle">管理本地存储的热点数据和采集配置</div>
+
+    <!-- 主题切换 -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="font-weight:600;margin-bottom:8px;">🎨 主题</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" @click="setTheme('light')"
+          :style="!isDark ? 'background:var(--accent);color:white;border:2px solid var(--accent);' : 'background:var(--bg-secondary);border:2px solid var(--border-color);'">
+          ☀️ 亮色
+        </button>
+        <button class="btn btn-sm" @click="setTheme('dark')"
+          :style="isDark ? 'background:var(--accent);color:white;border:2px solid var(--accent);' : 'background:var(--bg-secondary);border:2px solid var(--border-color);'">
+          🌙 暗色
+        </button>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">
+        主题设置自动保存在本地浏览器
+      </div>
+    </div>
 
     <!-- 存储概览 -->
     <div class="card" style="margin-bottom:16px;">
@@ -93,12 +111,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useHotspotStore } from '../stores/hotspot'
 
 const store = useHotspotStore()
 const showToast = inject('showToast', () => {})
+const isDark = inject('isDark', ref(false))
 const confirmDelete = ref(false)
+
+// 主题切换
+function setTheme(mode) {
+  isDark.value = mode === 'dark'
+  localStorage.setItem('theme', mode)
+  document.documentElement.className = mode
+  showToast(mode === 'dark' ? '已切换为暗色主题' : '已切换为亮色主题')
+}
 
 async function handleCrawl() {
   const result = await store.triggerCrawl()
