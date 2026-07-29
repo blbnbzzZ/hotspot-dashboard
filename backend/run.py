@@ -3,8 +3,12 @@ import uvicorn
 import logging
 import sys
 from pathlib import Path
+from datetime import datetime
 
-LOG_DIR = Path(__file__).parent / "data"
+if getattr(sys, 'frozen', False):
+    LOG_DIR = Path.home() / "Documents" / "HotspotDashboard" / "data"
+else:
+    LOG_DIR = Path(__file__).parent / "data"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "backend.log"
 

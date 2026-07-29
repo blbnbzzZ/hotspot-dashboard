@@ -3,9 +3,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from pathlib import Path
 
-# SQLite 数据库文件存放在项目目录
-import os
-DB_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "data"
+# SQLite 数据库文件存放位置
+import os, sys
+
+# PyInstaller 打包后：存到用户文档目录，确保持久化
+if getattr(sys, 'frozen', False):
+    DB_DIR = Path.home() / "Documents" / "HotspotDashboard" / "data"
+else:
+    DB_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "data"
 DB_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = f"sqlite+aiosqlite:///{DB_DIR}/hotspots.db"
 

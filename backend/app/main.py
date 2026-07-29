@@ -101,6 +101,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 生产模式：挂载前端静态文件（当 frontend/dist 存在时）
+# Vite 开发模式时由 Vite 自己代理 /api，这个不生效
+base = Path(__file__).parent.parent.parent
+static_dir = base / "frontend" / "dist"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="frontend")
+    print(f"[静态文件] 已挂载: {static_dir}")
+else:
+    print("[静态文件] frontend/dist 不存在，使用 Vite 开发模式")
+
 # ========================
 # 热点相关 API
 # ========================
