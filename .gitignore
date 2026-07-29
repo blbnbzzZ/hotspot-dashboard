@@ -27,8 +27,3 @@ Thumbs.db
 
 # Temp
 *.log
-
-# PyInstaller build
-dist/
-build/
-*.spec
