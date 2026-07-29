@@ -49,10 +49,10 @@
                 {{ platformNames[plat] }}
               </span>
               <span v-if="info.url && isRealUrl(info.url)" style="display:flex;align-items:center;gap:4px;">
-                <a :href="info.url" target="_blank"
-                  style="font-size:0.72rem;color:var(--accent);text-decoration:none;">
-                  🔗 查看原页
-                </a>
+                <button @click.stop="openArticle(info.url, plat)"
+                  style="font-size:0.72rem;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;">
+                  🔗 查看文章
+                </button>
               </span>
               <span v-else-if="info.url" style="font-size:0.7rem;color:var(--text-muted);">
                 🔍 搜索结果
@@ -83,6 +83,40 @@
       <div class="empty-state-icon">🔍</div>
       <div class="empty-state-text">热点数据不存在或已过期</div>
     </div>
+
+    <!-- 文章查看弹窗 -->
+    <transition name="fade">
+      <div v-if="articleModal.show" class="article-backdrop" @click="closeArticle">
+        <div class="article-modal card" @click.stop>
+          <div class="article-header">
+            <div class="article-title">{{ articleModal.title || '加载中...' }}</div>
+            <button class="btn btn-danger btn-sm" @click="closeArticle">✕</button>
+          </div>
+          <div class="article-body">
+            <div v-if="articleModal.loading" class="loading-spinner">
+              <div class="spinner"></div>
+              <div style="margin-top:8px;color:var(--text-muted);font-size:0.85rem;">正在抓取文章内容...</div>
+            </div>
+            <template v-else>
+              <div v-if="articleModal.summary" class="article-summary">
+                <div style="font-weight:600;margin-bottom:6px;">🤖 AI 摘要</div>
+                <div style="font-size:0.85rem;line-height:1.7;">{{ articleModal.summary }}</div>
+              </div>
+              <div class="article-text">
+                <pre>{{ articleModal.text || '无法获取正文内容' }}</pre>
+              </div>
+              <div v-if="articleModal.url" style="margin-top:12px;text-align:center;">
+                <a :href="articleModal.url" target="_blank" class="btn btn-secondary btn-sm"
+                  style="text-decoration:none;">
+                  🔗 在新窗口打开原文
+                </a>
+              </div>
+              <div v-if="articleModal.error" class="article-error">⚠️ {{ articleModal.error }}</div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -98,6 +132,48 @@ const store = useHotspotStore()
 const detail = ref(null)
 const loading = ref(true)
 const chartRef = ref(null)
+const showToast = inject('showToast', () => {})
+
+// 文章查看弹窗
+const articleModal = ref({
+  show: false,
+  loading: false,
+  title: '',
+  text: '',
+  summary: '',
+  url: '',
+  error: '',
+})
+
+async function openArticle(url, platform) {
+  articleModal.value = {
+    show: true, loading: true, title: '加载中...',
+    text: '', summary: '', url, error: '',
+  }
+  try {
+    const res = await fetch('/api/content/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      articleModal.value.title = data.title || '无标题'
+      articleModal.value.text = data.text || '（正文为空）'
+      articleModal.value.summary = data.summary || ''
+    } else {
+      articleModal.value.error = data.detail || '加载失败'
+    }
+  } catch (e) {
+    articleModal.value.error = e.message
+  } finally {
+    articleModal.value.loading = false
+  }
+}
+
+function closeArticle() {
+  articleModal.value.show = false
+}
 const isDark = inject('isDark', ref(false))
 
 const platformNames = { weibo: '微博', thepaper: '澎湃', baidu: '百度', bilibili: 'B站' }
@@ -223,3 +299,69 @@ function renderTrendChart() {
 onMounted(loadDetail)
 watch(() => route.params.id, loadDetail)
 </script>
+
+<style scoped>
+.article-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.article-modal {
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 501;
+}
+.article-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+.article-title {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+  max-height: 3em;
+  overflow: hidden;
+}
+.article-body {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 12px;
+  min-height: 200px;
+}
+.article-summary {
+  background: var(--accent-light);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  border-left: 3px solid var(--accent);
+}
+.article-text pre {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin: 0;
+}
+.article-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  padding: 12px;
+  text-align: center;
+}
+</style>

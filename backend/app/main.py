@@ -799,6 +799,80 @@ def health_check():
     }
 
 
+# ========================
+# 网页内容提取 API
+# ========================
+
+@app.post("/api/content/fetch")
+def fetch_page_content(request: dict):
+    """抓取网页内容并提取正文（免费：纯提取）；
+       如已配 AI Key 则额外生成 AI 摘要"""
+    url = request.get("url", "").strip()
+    if not url or not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="无效的 URL")
+
+    try:
+        # 抓取网页
+        resp = httpx.get(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        }, timeout=15, follow_redirects=True)
+
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # 移除无用标签
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
+            tag.decompose()
+
+        # 提取标题
+        title = ""
+        if soup.title:
+            title = soup.title.get_text(strip=True)
+
+        # 提取正文 text（获取 body 中的所有文本，保留段落结构）
+        body = soup.find("body")
+        if body:
+            # 提取段落文本
+            paragraphs = []
+            for p in body.find_all(["p", "h1", "h2", "h3", "h4", "li", "blockquote"]):
+                text = p.get_text(strip=True)
+                if len(text) > 15:  # 过滤过短的片段
+                    paragraphs.append(text)
+            text = "\n".join(paragraphs)
+        else:
+            text = soup.get_text("\n", strip=True)
+
+        # 限制长度
+        if len(text) > 8000:
+            text = text[:8000] + "..."
+
+        result = {
+            "title": title,
+            "text": text,
+            "url": url,
+            "summary": None,
+        }
+
+        # 如果有 AI Key，尝试生成摘要
+        try:
+            provider_key = ai_service.get_configured_provider()
+            if provider_key and text:
+                import asyncio
+                summary_result = asyncio.run(ai_service.ai_chat([
+                    {"role": "user", "content": f"请用 3-5 句话总结下面这篇文章的核心内容，不要加多余的话：\n\n{text[:4000]}"}
+                ]))
+                result["summary"] = summary_result["content"]
+        except Exception:
+            pass  # AI 摘要失败不影响纯文本提取
+
+        return result
+
+    except httpx.ConnectTimeout:
+        raise HTTPException(status_code=504, detail="页面加载超时（可能无法访问）")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
 @app.post("/api/conversations/export")
 def export_conversation(request: dict, db: Session = Depends(get_db)):
     """导出对话为文件（仅在首次生成时创建目录）"""
