@@ -75,6 +75,15 @@ class LauncherApp:
                 font=self.FONT_SM, bg=self.BG, fg=self.MUTED,
                 anchor=tk.W).pack(fill=tk.X, pady=(2, 0))
 
+        # 关闭按钮（X）- 标题栏右侧
+        tk.Button(header, text="✕", command=self.on_close,
+                  font=("Arial", 14, "bold"),
+                  bg=self.BG, fg=self.MUTED,
+                  relief=tk.FLAT, cursor="hand2",
+                  activebackground="#dc2626", activeforeground="white",
+                  width=3, height=1, bd=0
+                  ).pack(side=tk.RIGHT, padx=(0, 8), pady=12)
+
         # 状态指示灯
         self.status_dot = tk.Canvas(header, width=14, height=14,
                                      bg=self.BG, highlightthickness=0)
@@ -265,7 +274,7 @@ class LauncherApp:
         self.update_info("💻 PC:  http://localhost:5173")
         lan_ip = self.get_lan_ip()
         if lan_ip:
-            self.update_info(f"💻 PC:  http://localhost:5173\n📱 手机: http://{lan_ip}:5173\n📋 日志: 设置页 → 后端日志")
+            self.update_info(f"💻 PC:  http://localhost:5173\n📱 手机: http://{lan_ip}:5173")
 
         webbrowser.open("http://localhost:5173")
 
@@ -298,10 +307,24 @@ class LauncherApp:
 
     def on_close(self):
         import tkinter.messagebox as mb
-        if not mb.askyesno("确认退出", "确认退出热点聚合工作台？"):
+        if not mb.askyesno("确认退出", "确认退出热点聚合工作台？\n所有服务和浏览器窗口将被关闭。"):
             return
         self.running = False
         self.append_log("[INFO] 正在关闭服务...")
+        # 先关闭浏览器
+        try:
+            self.append_log("[INFO] 关闭浏览器窗口...")
+            subprocess.run(
+                'taskkill /F /IM chrome.exe /FI "WINDOWTITLE eq *localhost*"',
+                shell=True, capture_output=True, timeout=5
+            )
+            subprocess.run(
+                'taskkill /F /IM msedge.exe /FI "WINDOWTITLE eq *localhost*"',
+                shell=True, capture_output=True, timeout=5
+            )
+        except Exception as e:
+            print(f"关闭浏览器失败: {e}")
+        # 关闭后端/前端进程
         try:
             if frontend_proc:
                 frontend_proc.terminate()

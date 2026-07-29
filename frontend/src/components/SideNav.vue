@@ -50,13 +50,6 @@
 
       <div class="drawer-divider"></div>
 
-      <div class="drawer-nav">
-        <button class="drawer-link drawer-exit" @click="exitApp">
-          <span class="link-icon">🚪</span>
-          <span class="link-text">退出程序</span>
-        </button>
-      </div>
-
       <div style="flex:1;"></div>
 
       <div style="padding:12px;font-size:0.7rem;color:var(--text-muted);text-align:center;">
@@ -90,20 +83,6 @@ function toggleDrawer() {
 
 function closeDrawer() {
   drawerOpen.value = false
-}
-
-async function exitApp() {
-  if (!confirm('确认退出程序？所有服务和CMD窗口将被关闭。')) return
-  try {
-    await fetch('/api/system/exit', { method: 'POST' })
-  } catch (e) {}
-  showToast('正在关闭所有服务...')
-  // 立即关闭浏览器窗口
-  setTimeout(() => {
-    // 尝试关闭浏览器
-    window.open('', '_self').close()
-    window.close()
-  }, 300)
 }
 
 // 主题切换

@@ -48,8 +48,41 @@ async def lifespan(app: FastAPI):
         await run_crawl_job()
     except Exception as e:
         print(f"[启动] 首次爬取异常: {e}")
+
+    # 自动把超过 3 小时的批次加入排除列表
+    _auto_exclude_old_batches()
+
     yield
     stop_scheduler()
+
+
+def _auto_exclude_old_batches():
+    """超过 3 小时的批次自动加入排除（用户仍可手动恢复）"""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now() - timedelta(hours=3)
+        old_batches = db.query(BatchRecord).filter(
+            BatchRecord.created_at < cutoff
+        ).all()
+        if not old_batches:
+            return
+
+        setting = db.query(Setting).filter_by(key="excluded_batch_ids").first()
+        existing = set(setting.value.split(",")) if setting and setting.value else set()
+        for b in old_batches:
+            existing.add(b.batch_id)
+        new_value = ",".join([x for x in existing if x])
+        if setting:
+            setting.value = new_value
+        else:
+            db.add(Setting(key="excluded_batch_ids", value=new_value))
+        db.commit()
+        print(f"[启动] 自动排除 {len(old_batches)} 个超过 3h 的批次")
+    except Exception as e:
+        print(f"[启动] 自动排除失败: {e}")
+    finally:
+        db.close()
 
 
 app = FastAPI(
@@ -84,15 +117,15 @@ def get_hotspots(
     page: int = 1,
     page_size: int = 30,
 ):
-    """获取聚合热点列表（默认聚合最近 24h 内最多 3 批次，可排除）"""
+    """获取聚合热点列表（默认聚合最近 3h 内的所有批次，可排除）"""
     # 显式指定 batch_id 时直接用
     if not batch_id:
-        # 默认取最近 3 个 24h 内的批次
-        cutoff_24h = datetime.now() - timedelta(hours=24)
+        # 默认取最近 3 小时内的所有批次
+        cutoff_3h = datetime.now() - timedelta(hours=3)
         recent_batches = db.query(BatchRecord).filter(
             BatchRecord.status == "completed",
-            BatchRecord.created_at >= cutoff_24h,
-        ).order_by(desc(BatchRecord.created_at)).limit(3).all()
+            BatchRecord.created_at >= cutoff_3h,
+        ).order_by(desc(BatchRecord.created_at)).all()
 
         # 排除用户勾选不要的批次
         excluded_setting = db.query(Setting).filter_by(key="excluded_batch_ids").first()
@@ -155,11 +188,11 @@ def get_common_hotspots(
     if batch_id:
         batch_ids = [batch_id]
     else:
-        cutoff = datetime.now() - timedelta(hours=24)
+        cutoff = datetime.now() - timedelta(hours=3)
         recent = db.query(BatchRecord).filter(
             BatchRecord.status == "completed",
             BatchRecord.created_at >= cutoff,
-        ).order_by(desc(BatchRecord.created_at)).limit(3).all()
+        ).order_by(desc(BatchRecord.created_at)).all()
 
         excluded = db.query(Setting).filter_by(key="excluded_batch_ids").first()
         excluded_set = set()

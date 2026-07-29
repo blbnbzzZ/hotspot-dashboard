@@ -244,4 +244,10 @@ class HotAggregator:
 
         if n <= 1:
             return f"仅在{plat_list}上出现"
-        return f"在{plat_list}共{n}个平台出现，为{'跨平台共同热点' if len(platforms) >= 2 else '单平台热点'}"
+        # 多平台：增加排名描述
+        rank_info = []
+        for it in items[:4]:
+            plat_name = plat_names.get(it['platform'], it['platform'])
+            rank_info.append(f"{plat_name}#{it['rank']}")
+        ranks = "，".join(rank_info)
+        return f"在{plat_list}共{n}个平台出现，为{'跨平台共同热点' if len(platforms) >= 2 else '单平台热点'}（{ranks}）"

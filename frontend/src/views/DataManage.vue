@@ -21,26 +21,6 @@
       </div>
     </div>
 
-    <!-- 后端日志 -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <span>📋 后端日志</span>
-        <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" @click="fetchLogs">🔄 刷新</button>
-          <button class="btn btn-danger btn-sm" @click="clearLogs">🗑️ 清空</button>
-        </div>
-      </div>
-      <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;">
-        文件大小：{{ formatSize(logSize) }} · 显示最后 {{ logLines.length }} 行
-      </div>
-      <div style="background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:var(--radius-sm);
-                  font-family:var(--font-mono);font-size:0.75rem;line-height:1.5;
-                  max-height:400px;overflow-y:auto;white-space:pre-wrap;">
-        <div v-if="!logLines.length" style="color:#888;">暂无日志</div>
-        <div v-for="(line, i) in logLines" :key="i">{{ line }}</div>
-      </div>
-    </div>
-
     <!-- 存储概览 -->
     <div class="card" style="margin-bottom:16px;">
       <div style="font-weight:600;margin-bottom:8px;">💾 存储概览</div>
@@ -131,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useHotspotStore } from '../stores/hotspot'
 
 const store = useHotspotStore()
@@ -146,41 +126,6 @@ function setTheme(mode) {
   document.documentElement.className = mode
   showToast(mode === 'dark' ? '已切换为暗色主题' : '已切换为亮色主题')
 }
-
-// ============ 后端日志 ============
-const logLines = ref([])
-const logSize = ref(0)
-
-async function fetchLogs() {
-  try {
-    const res = await fetch('/api/system/logs?lines=200')
-    const data = await res.json()
-    logLines.value = data.lines || []
-    logSize.value = data.size || 0
-  } catch (e) {
-    showToast('加载日志失败')
-  }
-}
-
-async function clearLogs() {
-  if (!confirm('确认清空所有日志？')) return
-  try {
-    await fetch('/api/system/logs', { method: 'DELETE' })
-    showToast('已清空')
-    await fetchLogs()
-  } catch (e) {
-    showToast('清空失败')
-  }
-}
-
-function formatSize(bytes) {
-  if (!bytes) return '0 B'
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / 1024 / 1024).toFixed(1) + ' MB'
-}
-
-let logTimer = null
 
 async function handleCrawl() {
   const result = await store.triggerCrawl()
@@ -217,12 +162,5 @@ async function handleClear() {
 onMounted(() => {
   store.fetchStats()
   store.fetchBatches()
-  fetchLogs()
-  // 每 10 秒自动刷新日志
-  logTimer = setInterval(fetchLogs, 10000)
-})
-
-onBeforeUnmount(() => {
-  if (logTimer) clearInterval(logTimer)
 })
 </script>

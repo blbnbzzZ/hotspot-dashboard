@@ -119,18 +119,18 @@ def start_scheduler():
     """启动定时调度器"""
     init_db()
 
-    # 每30分钟执行一次（用户嫌6小时太久，缩短）
+    # 每 10 分钟执行一次
     scheduler.add_job(
         run_crawl_job,
         trigger="interval",
-        minutes=30,
+        minutes=10,
         id="crawl_hotspots",
         name="爬取热点数据",
         replace_existing=True,
     )
 
     scheduler.start()
-    print("[调度器] 已启动，每30分钟爬取一次")
+    print("[调度器] 已启动，每 10 分钟爬取一次")
     print("[调度器] 平台: 微博、澎湃、百度、B站")
 
 

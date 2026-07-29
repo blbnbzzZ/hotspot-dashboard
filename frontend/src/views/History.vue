@@ -4,7 +4,7 @@
 
     <!-- 使用说明 -->
     <div class="card" style="font-size:0.78rem;color:var(--text-secondary);line-height:1.7;background:var(--accent-light);border-left:3px solid var(--accent);">
-      💡 <strong>引用规则</strong>：系统默认引用最近 24 小时内最新的 <strong>3 批</strong>数据。
+      💡 <strong>引用规则</strong>：系统默认引用最近 <strong>3 小时</strong>内的所有批次（更早的会自动排除，点击「🚫 已排除」可手动恢复引用）。
       点击「✓ 引用中」按钮可<strong>排除</strong>某批次（首页将不再展示该批次数据），点击「🚫 已排除」可恢复。
     </div>
 
