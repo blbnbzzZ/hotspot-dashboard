@@ -48,10 +48,15 @@
               <span class="platform-badge" :class="'platform-' + plat">
                 {{ platformNames[plat] }}
               </span>
-              <a v-if="info.url" :href="info.url" target="_blank"
-                style="font-size:0.72rem;color:var(--accent);text-decoration:none;">
-                🔗 查看原页
-              </a>
+              <span v-if="info.url && isRealUrl(info.url)" style="display:flex;align-items:center;gap:4px;">
+                <a :href="info.url" target="_blank"
+                  style="font-size:0.72rem;color:var(--accent);text-decoration:none;">
+                  🔗 查看原页
+                </a>
+              </span>
+              <span v-else-if="info.url" style="font-size:0.7rem;color:var(--text-muted);">
+                🔍 搜索结果
+              </span>
             </div>
             <div style="font-size:0.85rem;line-height:1.4;">{{ info.title }}</div>
           </div>
@@ -101,6 +106,17 @@ function formatNumber(n) {
   if (!n) return '0'
   if (n >= 10000) return (n / 10000).toFixed(1) + '万'
   return n.toLocaleString()
+}
+
+function isRealUrl(url) {
+  // 检测是不是真正的文章/视频链接，不是搜索页
+  const searchPatterns = [
+    's.weibo.com/weibo',
+    'baidu.com/s?',
+    'thepaper.cn/search',
+    'search.bilibili.com',
+  ]
+  return !searchPatterns.some(p => url.includes(p))
 }
 
 function goGenerate() {

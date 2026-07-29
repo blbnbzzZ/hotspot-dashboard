@@ -124,11 +124,21 @@ def get_hotspots(
     # 综合排序（只保留 weight）
     query = query.order_by(desc(AggregatedHot.total_weight))
 
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    raw_items = query.offset((page - 1) * page_size).limit(page_size * 3).all()  # 多取一些，后面要去重
+
+    # 去重：同一 display_title 的热点只保留一条（取 weight 最高的）
+    seen = {}
+    for h in raw_items:
+        key = h.display_title.strip()
+        if key not in seen or h.total_weight > seen[key].total_weight:
+            seen[key] = h
+
+    items = sorted(seen.values(), key=lambda x: x.total_weight, reverse=True)[:page_size]
+    total_unique = len(seen)
 
     return {
         "items": [_serialize_aggregated(h) for h in items],
-        "total": total,
+        "total": total_unique,
         "page": page,
         "page_size": page_size,
         "batch_ids": batch_ids,
@@ -160,11 +170,19 @@ def get_common_hotspots(
             return {"items": [], "batch_ids": []}
         batch_ids = [b.batch_id for b in usable]
 
-    items = db.query(AggregatedHot).filter(
+    raw_items = db.query(AggregatedHot).filter(
         AggregatedHot.batch_id.in_(batch_ids),
         AggregatedHot.is_common == 1,
         AggregatedHot.platform_count >= min_platforms,
     ).order_by(desc(AggregatedHot.total_weight)).all()
+
+    # 去重：同一 display_title 只保留 weight 最高的
+    seen = {}
+    for h in raw_items:
+        key = h.display_title.strip()
+        if key not in seen or h.total_weight > seen[key].total_weight:
+            seen[key] = h
+    items = sorted(seen.values(), key=lambda x: x.total_weight, reverse=True)
 
     return {
         "items": [_serialize_aggregated(h) for h in items],

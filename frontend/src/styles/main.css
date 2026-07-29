@@ -759,6 +759,9 @@ body {
   margin-bottom: 12px;
   cursor: pointer;
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 /* --- Content Gen --- */

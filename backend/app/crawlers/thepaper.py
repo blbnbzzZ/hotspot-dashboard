@@ -56,8 +56,40 @@ class ThePaperCrawler:
                         "extra_data": {},
                     })
 
+                # 尝试解析真实文章链接
+                items = await self._resolve_real_urls(items, client)
+
                 return items
 
             except Exception as e:
                 print(f"[澎湃爬虫] 错误: {e}")
                 return []
+
+    async def _resolve_real_urls(self, items, client):
+        """从搜索页解析第一条真实文章链接"""
+        import urllib.parse
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.thepaper.cn/",
+        }
+        from bs4 import BeautifulSoup
+        for item in items[:10]:
+            try:
+                keyword = urllib.parse.quote(item["title"])
+                resp = await client.get(
+                    f"https://m.thepaper.cn/search?keyword={keyword}",
+                    headers=headers, timeout=8, follow_redirects=True
+                )
+                soup = BeautifulSoup(resp.text, "html.parser")
+                # 澎湃搜索结果链接包含 newsDetail_forward
+                link = soup.select_one("a[href*='newsDetail_forward']")
+                if link:
+                    href = link.get("href", "")
+                    if href.startswith("//"):
+                        href = "https:" + href
+                    elif href.startswith("/"):
+                        href = "https://m.thepaper.cn" + href
+                    item["url"] = href
+            except Exception:
+                pass
+        return items

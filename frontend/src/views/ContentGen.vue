@@ -1,6 +1,6 @@
 <template>
   <div class="content-gen">
-    <router-link to="/" class="back-btn">← 返回看板</router-link>
+    <button class="back-btn" @click="goBack">← 返回</button>
 
     <!-- 已选热点 -->
     <div v-if="selectedHot" class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;">
@@ -11,7 +11,7 @@
           权重 {{ Math.round(selectedHot.total_weight) }} · {{ selectedHot.category }}
         </div>
       </div>
-      <button class="btn btn-secondary btn-sm" @click="selectedHot = null">更换</button>
+      <button class="btn btn-secondary btn-sm" @click="goChangeHot">更换</button>
     </div>
 
     <!-- Tips 教程 -->
@@ -125,12 +125,33 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, inject } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useHotspotStore } from '../stores/hotspot'
 
 const route = useRoute()
 const store = useHotspotStore()
+const router = useRouter()
 const showToast = inject('showToast', () => {})
+
+// 返回上一级（如果来自 TrendDetail 就回 TrendDetail，否则回首页）
+function goBack() {
+  // 优先尝试 router.back()
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
+// 更换热点 → 回首页让用户选别的
+function goChangeHot() {
+  selectedHot.value = null
+  promptInput.value = ''
+  messages.value = []
+  currentConvId.value = null
+  convTotalTokens.value = 0
+  router.push('/')
+}
 
 // 状态
 const selectedHot = ref(null)

@@ -45,7 +45,7 @@
           </div>
           <button class="btn btn-sm" @click.stop="toggleBatchExclusion(batch.batch_id)"
             v-if="batch.status === 'completed'"
-            :style="isExcluded(batch.batch_id) ? 'background:#ef4444;color:white;' : 'background:var(--bg-secondary);color:var(--text-secondary);'"
+            :style="isExcluded(batch.batch_id) ? 'background:#ef4444;color:white;border:2px solid #ef4444;' : 'background:var(--bg-card);color:var(--text-primary);border:2px solid var(--accent);'"
             :title="isExcluded(batch.batch_id) ? '点击恢复引用此批次' : '点击排除此批次（不在首页显示）'">
             {{ isExcluded(batch.batch_id) ? '🚫 已排除' : '✓ 引用中' }}
           </button>
