@@ -5,7 +5,6 @@
     <!-- Tab 切换 -->
     <div class="filter-bar">
       <button class="filter-chip" :class="{ active: tab === 'history' }" @click="tab = 'history'">💬 对话历史</button>
-      <button class="filter-chip" :class="{ active: tab === 'records' }" @click="tab = 'records'">📋 生成记录</button>
       <button class="filter-chip" :class="{ active: tab === 'settings' }" @click="tab = 'settings'">🔑 API 设置</button>
     </div>
 
