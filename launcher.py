@@ -41,11 +41,17 @@ def check_deps():
         print(f"  [FAIL] npm not found: {e}")
         return False
 
+    # Backend deps
+    print("  [INFO] Checking backend dependencies...")
+    subprocess.run("pip install -r requirements.txt --quiet", cwd=ROOT / "backend", shell=True)
+
     # Frontend deps
     nm = ROOT / "frontend" / "node_modules"
     if not nm.exists():
         print("  [INFO] Installing frontend dependencies...")
         subprocess.run("npm install", cwd=ROOT / "frontend", shell=True)
+    else:
+        print("  [OK]  Frontend dependencies ready")
 
     return True
 

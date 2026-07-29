@@ -44,7 +44,7 @@
 
 **AI 服务**
 - 支持 5 家：智谱 AI / 通义千问 / DeepSeek / 豆包 / OpenAI
-- 推荐**智谱 AI**：注册送 2000 万 tokens 永久免费
+- 选哪个看你自己，本文档不作推荐
 
 ---
 
@@ -52,50 +52,35 @@
 
 ### 前置要求
 
-| 工具 | 版本 | 安装 |
-|---|---|---|
-| **Python** | 3.11+ | [官网下载](https://www.python.org/downloads/) |
-| **Node.js** | 18+ | [官网下载](https://nodejs.org/) |
-| **Git** | 任意 | [官网下载](https://git-scm.com/) |
+| 工具 | 安装 |
+|---|---|
+| **Python** | 从 [python.org](https://www.python.org/downloads/) 下载，安装时勾选 Add to PATH |
+| **Node.js** | 从 [nodejs.org](https://nodejs.org/) 下载 18+ 版本 |
 
-> Windows 用户直接装好 Python 和 Node 后往下走。
+> 安装完以上两个工具后，下一步就是双击运行，不需要装 Git。
 
-### 一键启动（推荐）
+### 一键启动（Windows）
 
-**Windows 用户**：双击项目根目录的 `run.bat`
+1. 下载项目到任意目录（比如 `D:\hotspot-dashboard`）
+2. **双击 `run.bat`**，程序会自动：
+   - 安装后端依赖（用时约 10 秒）
+   - 安装前端依赖（用时约 30 秒，仅首次需要）
+   - 启动后端服务（端口 8000）
+   - 启动前端页面（端口 5173）
+   - 自动打开浏览器
 
-```bash
-# 或命令行运行
-run.bat
-```
+首次启动总计约 **40 秒**，后续每次只需约 **15 秒**。
 
-启动后会打开 3 个窗口：
-- Launcher（启动器）
-- Backend-8000（FastAPI 后端）
-- Frontend-5173（Vue 前端）
+### 手机访问
 
-等待 ~20 秒，浏览器自动打开 http://localhost:5173
+> 如果你有用手机打开的需求：
 
-### 手动启动
-
-如果 `run.bat` 启动失败，可手动启动：
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/blbnbzzZ/hotspot-dashboard.git
-cd hotspot-dashboard
-
-# 2. 安装后端依赖
-cd backend
-pip install -r requirements.txt
-python run.py &
-cd ..
-
-# 3. 安装前端依赖
-cd frontend
-npm install
-npm run dev
-```
+1. 电脑和手机连接**同一 WiFi**
+2. 双击 `run.bat`，启动后窗口会显示你的局域网 IP
+3. 手机浏览器打开 `http://192.168.x.x:5173`
+4. **添加到主屏幕**（像原生 App 一样）：
+   - **iOS Safari**：底部分享 → 添加到主屏幕
+   - **Android Chrome**：菜单 → 添加到主屏幕
 
 ---
 
@@ -106,32 +91,18 @@ npm run dev
 1. 浏览器进入 http://localhost:5173
 2. 点击左上角 ☰ 头像 → 「👤 我的」
 3. 进入「🔑 API 设置」
-4. 选一个 AI 提供商（推荐智谱 AI）
-5. 填入 API Key → 点击「保存」
-
-### 推荐：智谱 AI（免费额度最多）
-
-1. 打开 [open.bigmodel.cn](https://open.bigmodel.cn/)
-2. 注册并登录（手机号即可）
-3. 进入「API Keys」→ 创建 Key
-4. 复制 Key 填入本工具
+4. 选一个 AI 提供商，填入你的 API Key → 保存
 5. 重启后端生效
 
----
+目前支持的提供商：
 
-## 📱 手机访问
-
-工作台支持局域网访问 + 添加到桌面：
-
-1. **确保手机和电脑在同一 WiFi**
-2. 重启 `run.bat`，启动窗口会显示局域网 IP，类似：
-   ```
-   📱 手机浏览器打开: http://192.168.x.x:5173
-   ```
-3. 手机浏览器输入该地址
-4. **添加到主屏幕**（像 App 一样）：
-   - **iOS Safari**: 分享按钮 → 添加到主屏幕
-   - **Android Chrome**: 菜单 → 添加到主屏幕 / 安装应用
+| 提供商 | 说明 |
+|---|---|
+| **智谱 AI** | 注册送 2000 万 tokens |
+| **通义千问** | 阿里云，送 100 万 tokens |
+| **DeepSeek** | 注册送 500 万 tokens |
+| **豆包** | 字节旗下，有免费额度 |
+| **OpenAI 兼容** | 支持任何 OpenAI 兼容接口（如 OneAPI） |
 
 ---
 
@@ -140,7 +111,7 @@ npm run dev
 ### 1. 实时查看热点
 打开首页，自动展示当前 4 大平台的热点综合排序。
 
-### 2. 排序与筛选
+### 2. 筛选
 - 切换「🔥 所有数据源共同热点」查看跨平台热门话题
 - 按分类筛选（体育 / 国际 / 财经 等）
 
@@ -158,60 +129,31 @@ npm run dev
 
 ---
 
-## ⚙️ 核心架构
-
-```
-┌─────────────────────────────────────────────┐
-│  Frontend (Vue 3 + Vite, 端口 5173)         │
-│  - Dashboard / Detail / ContentGen         │
-│  - History / MyPage / Settings             │
-│  - PWA（手机适配）                          │
-└──────────────┬──────────────────────────────┘
-               │ /api/* 代理
-┌──────────────▼──────────────────────────────┐
-│  Backend (FastAPI, 端口 8000)              │
-│  - /api/hotspots (聚合去重)                │
-│  - /api/conversations (对话历史)           │
-│  - /api/ai/* (AI 调用)                     │
-│  - APScheduler (每 30 分钟爬取)            │
-└──────────────┬──────────────────────────────┘
-               │
-   ┌───────────┼───────────┬──────────┐
-   ▼           ▼           ▼          ▼
-┌──────┐  ┌──────┐  ┌─────────┐  ┌──────┐
-│微博  │  │澎湃  │  │百度热搜 │  │B站   │
-└──────┘  └──────┘  └─────────┘  └──────┘
-   + jieba 分词聚合（jaccard 相似度）
-   + SQLite 持久化（hotspots.db）
-```
-
----
-
 ## 🛡 数据安全
 
-- ✅ 所有数据保存在你本地 `backend/data/hotspots.db`
+- ✅ 所有数据保存在你本地 SQLite 数据库
 - ✅ API Key 存在本地数据库，不上传任何服务器
-- ✅ `.gitignore` 排除 `.env` 和 `*.db`，**仓库零敏感信息泄露**
+- ✅ `.gitignore` 排除 `.env` 和 `*.db`，仓库零敏感信息泄露
 - ✅ 开源透明，无追踪无广告
 
 ---
 
 ## ❓ 常见问题
 
-### Q：后端启动报错 `ModuleNotFoundError`
-A：进入 `backend` 目录运行 `pip install -r requirements.txt`
+### Q：python/node 找不到命令？
+A：检查是否安装了 Python 和 Node.js，安装时记得勾选「Add to PATH」
 
-### Q：前端启动报错 `Cannot find module`
-A：进入 `frontend` 目录运行 `npm install`
+### Q：启动后浏览器打不开？
+A：手动打开 http://localhost:5173
 
-### Q：手机访问显示「拒绝连接」
-A：检查电脑和手机是否在同一 WiFi；Windows 防火墙可能拦截了 5173 / 8000 端口
+### Q：手机上访问不了？
+A：检查电脑和手机是否在同一 WiFi；Windows 防火墙可能拦截了端口
 
-### Q：爬取数据为空
-A：可能平台有反爬，等待几分钟后重试；或者浏览器访问微博/百度确认你的网络通畅
+### Q：数据为空？
+A：首次运行会自动爬取（约 10 秒），等待完成后刷新页面
 
-### Q：AI 生成报错「Invalid API Key」
-A：进入「👤 我的 → 🔑 API 设置」检查 Key 是否填对，重启后端
+### Q：AI 生成报错？
+A：检查你的 API Key 是否有效、余额是否充足，进入「我的 → API 设置」重新配置
 
 ---
 
@@ -222,58 +164,24 @@ hotspot-dashboard/
 ├── backend/                  # FastAPI 后端
 │   ├── app/
 │   │   ├── crawlers/         # 4 个平台爬虫
-│   │   ├── ai_service.py     # AI 服务（5 家）
-│   │   ├── aggregator.py     # jieba 聚合去重
-│   │   ├── main.py           # API 入口
-│   │   ├── models.py         # 数据库模型
-│   │   └── database.py       # SQLite 配置
-│   ├── data/                 # SQLite 数据库（gitignore）
+│   │   ├── ai_service.py     # AI 服务（5 家可选）
+│   │   ├── main.py           # API 入口（42 个接口）
+│   │   └── ...
 │   ├── requirements.txt
 │   └── run.py
 ├── frontend/                 # Vue 3 前端
-│   ├── src/
-│   │   ├── views/            # 6 个页面
-│   │   ├── components/       # 侧边栏 / 进度条
-│   │   ├── stores/           # Pinia 状态管理
-│   │   ├── styles/           # 全局样式
-│   │   └── router/
-│   ├── package.json
-│   └── vite.config.js
-├── launcher.py               # 一键启动器
-├── run.bat                   # Windows 一键启动
-├── promo_script.md           # 视频宣传脚本
-└── README.md                 # 你正在看的
+│   ├── src/views/            # 6 个页面
+│   └── ...
+├── launcher.py               # 一键启动器（自动装依赖）
+├── run.bat                   # Windows 双击启动
+└── README.md
 ```
-
----
-
-## 🤝 二次开发
-
-欢迎 PR！建议方向：
-
-- 🔌 添加新数据源（抖音/知乎/今日头条等）
-- 🌍 添加海外数据源（HackerNews 已实现）
-- 🤖 接入更多 AI（Claude / Gemini）
-- 📊 数据可视化增强（趋势预测 / 关联分析）
-- 🌐 多语言界面
 
 ---
 
 ## 📝 License
 
-MIT License — 自由使用、修改、商用
-
----
-
-## 🌟 Star History
-
-如果这个项目对你有帮助，欢迎给个 ⭐️ Star 支持！
-
----
-
-## 🙋 联系 / 反馈
-
-遇到问题？在 GitHub Issues 留言。
+MIT License
 
 ---
 
